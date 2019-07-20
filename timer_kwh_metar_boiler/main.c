@@ -474,28 +474,16 @@ void fsm_lcd_menu()
 						kursor_vert = KURSOR_MENU1_MAX;
 					}
 					else if(kursor_vert == KURSOR_PODSAT && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = POD_SAT;	//meni za podesavanje sata
-					}
 					else if(kursor_vert == KURSOR_PODONOF && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = POD_ON_OFF;	//sub_meni za podesavanje on ili off vremena
-					}
 					else if(kursor_vert == KURSOR_JEDNOKRAT && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = JEDNOKRATNO;	//sub_meni za podesavanje on ili off vremena jednokratno
-					}
 					else if( kursor_vert == KURSOR_JEDNOKRAT && ( ocitaj_jedan_taster(tasteri, TASTER_LEVO) ||  ocitaj_jedan_taster(tasteri, TASTER_DESNO) ) ) //levo ili desno kad je na JEDNOKRATNO da togluje on/of
-					{
 						jednok_on_off = !jednok_on_off;	//toggle
-					}
 					else if ( kursor_vert == KURSOR_BROJILO && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
-					{
 						STATE = BROJILO; //sub meni za prikaz merenja trenutnog napona, struje, snage...
-					}
+					
 					else if ( ocitaj_jedan_taster(tasteri, TASTER_NAZAD) )				//taster nazad stisnut
 					{
 						kursor_vert = 0;			//resetujem kursor jer ostane memorisan

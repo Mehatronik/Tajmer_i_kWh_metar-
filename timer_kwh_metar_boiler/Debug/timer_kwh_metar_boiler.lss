@@ -2017,13 +2017,10 @@ void fsm_lcd_menu()
      bea:	0e 94 4b 0c 	call	0x1896	; 0x1896 <ocitaj_jedan_taster>
      bee:	88 23       	and	r24, r24
      bf0:	21 f0       	breq	.+8      	; 0xbfa <__stack+0x2fb>
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = POD_SAT;	//meni za podesavanje sata
      bf2:	83 e0       	ldi	r24, 0x03	; 3
      bf4:	80 93 d6 01 	sts	0x01D6, r24	; 0x8001d6 <STATE>
      bf8:	94 c4       	rjmp	.+2344   	; 0x1522 <__stack+0xc23>
-					}
 					else if(kursor_vert == KURSOR_PODONOF && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
      bfa:	80 91 d5 01 	lds	r24, 0x01D5	; 0x8001d5 <kursor_vert>
      bfe:	81 30       	cpi	r24, 0x01	; 1
@@ -2033,13 +2030,10 @@ void fsm_lcd_menu()
      c08:	0e 94 4b 0c 	call	0x1896	; 0x1896 <ocitaj_jedan_taster>
      c0c:	88 23       	and	r24, r24
      c0e:	21 f0       	breq	.+8      	; 0xc18 <__stack+0x319>
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = POD_ON_OFF;	//sub_meni za podesavanje on ili off vremena
      c10:	84 e0       	ldi	r24, 0x04	; 4
      c12:	80 93 d6 01 	sts	0x01D6, r24	; 0x8001d6 <STATE>
      c16:	85 c4       	rjmp	.+2314   	; 0x1522 <__stack+0xc23>
-					}
 					else if(kursor_vert == KURSOR_JEDNOKRAT && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
      c18:	80 91 d5 01 	lds	r24, 0x01D5	; 0x8001d5 <kursor_vert>
      c1c:	81 11       	cpse	r24, r1
@@ -2049,13 +2043,10 @@ void fsm_lcd_menu()
      c26:	0e 94 4b 0c 	call	0x1896	; 0x1896 <ocitaj_jedan_taster>
      c2a:	88 23       	and	r24, r24
      c2c:	21 f0       	breq	.+8      	; 0xc36 <__stack+0x337>
-					{
-						//kursor_vert = 0;			//resetujem kursor jer ostane memorisan
 						STATE = JEDNOKRATNO;	//sub_meni za podesavanje on ili off vremena jednokratno
      c2e:	85 e0       	ldi	r24, 0x05	; 5
      c30:	80 93 d6 01 	sts	0x01D6, r24	; 0x8001d6 <STATE>
      c34:	76 c4       	rjmp	.+2284   	; 0x1522 <__stack+0xc23>
-					}
 					else if( kursor_vert == KURSOR_JEDNOKRAT && ( ocitaj_jedan_taster(tasteri, TASTER_LEVO) ||  ocitaj_jedan_taster(tasteri, TASTER_DESNO) ) ) //levo ili desno kad je na JEDNOKRATNO da togluje on/of
      c36:	80 91 d5 01 	lds	r24, 0x01D5	; 0x8001d5 <kursor_vert>
      c3a:	81 11       	cpse	r24, r1
@@ -2070,7 +2061,6 @@ void fsm_lcd_menu()
      c52:	0e 94 4b 0c 	call	0x1896	; 0x1896 <ocitaj_jedan_taster>
      c56:	88 23       	and	r24, r24
      c58:	41 f0       	breq	.+16     	; 0xc6a <__stack+0x36b>
-					{
 						jednok_on_off = !jednok_on_off;	//toggle
      c5a:	81 e0       	ldi	r24, 0x01	; 1
      c5c:	90 91 d3 01 	lds	r25, 0x01D3	; 0x8001d3 <jednok_on_off>
@@ -2078,7 +2068,6 @@ void fsm_lcd_menu()
      c62:	80 e0       	ldi	r24, 0x00	; 0
      c64:	80 93 d3 01 	sts	0x01D3, r24	; 0x8001d3 <jednok_on_off>
      c68:	5c c4       	rjmp	.+2232   	; 0x1522 <__stack+0xc23>
-					}
 					else if ( kursor_vert == KURSOR_BROJILO && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
      c6a:	80 91 d5 01 	lds	r24, 0x01D5	; 0x8001d5 <kursor_vert>
      c6e:	83 30       	cpi	r24, 0x03	; 3
@@ -2088,12 +2077,11 @@ void fsm_lcd_menu()
      c78:	0e 94 4b 0c 	call	0x1896	; 0x1896 <ocitaj_jedan_taster>
      c7c:	88 23       	and	r24, r24
      c7e:	21 f0       	breq	.+8      	; 0xc88 <__stack+0x389>
-					{
 						STATE = BROJILO; //sub meni za prikaz merenja trenutnog napona, struje, snage...
      c80:	86 e0       	ldi	r24, 0x06	; 6
      c82:	80 93 d6 01 	sts	0x01D6, r24	; 0x8001d6 <STATE>
      c86:	4d c4       	rjmp	.+2202   	; 0x1522 <__stack+0xc23>
-					}
+					
 					else if ( ocitaj_jedan_taster(tasteri, TASTER_NAZAD) )				//taster nazad stisnut
      c88:	64 e0       	ldi	r22, 0x04	; 4
      c8a:	80 91 01 01 	lds	r24, 0x0101	; 0x800101 <tasteri>
