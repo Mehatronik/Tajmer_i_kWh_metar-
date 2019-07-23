@@ -49,7 +49,7 @@ uint8_t ocitaj_tastere()
 		
 		//procitam stanje svih tastera i spakujem u jednu promenljivu
 		//prvo citanje
-		temp_reg1 = (PINB << 4 )|(PIND >> 4);	//prva 4 LSB su PIND a posle njih su 2 bita iz PINB
+		temp_reg1 = (PINB << 4 )|(PIND >> 4);	//prva 4 LSB su PINB a posle njih su 2 bita iz PIND
 
 	}
 	if (flag_prekid_debounce_time)		//drugo citanje 6ms, tj 3ms posle drugog

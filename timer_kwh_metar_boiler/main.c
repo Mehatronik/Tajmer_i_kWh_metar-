@@ -76,6 +76,12 @@ const uint8_t brojRedova = sizeof(menu1_txt) / sizeof(menu1_txt[1]) - 1;	//sa lo
 /************************** prototipovi funkcija ***************************************/
 uint8_t period_paljenja(Time_date *On_time, Time_date *Off_time, Time_date *CurrentTime);  //typedef struct mora biti pre prototipa da bi je video
 void fsm_lcd_menu();
+void displ1_LCD_ispis();
+void menu1_LCD_ispis(int* pom);
+void podSat_LCD_ispis();
+void podOnOff_LCD_ispis();
+void jednokrat_LCD_ispis();
+void brojilo_LCD_ispis();
 
 /************************* extern funkcije *********************************************/
 extern void sati_ispis(uint8_t *sat, char *buff, int8_t *cursor, uint8_t inc_dec);
@@ -173,16 +179,16 @@ int main(void)
 		dtostrf(struja, 4, 1, bafer);
 		uart_send_str(bafer);
 		uart_send_str("  ");
-		dtostrf(snaga, 4, 1, bafer);
+		dtostrf(snaga, 4, 2, bafer);
 		uart_send_str(bafer);
 		uart_send_str("  ");
-		dtostrf(energija, 5, 1, bafer);
+		dtostrf(energija, 5, 2, bafer);
 		uart_send_str(bafer);
 		uart_send_str("\n");
 		
-		sprintf(bafer, "%d", DS3231_Read(ageoffsetREG));	//citam registar za kalibraciju u RTC 
-		uart_send_str(bafer);
-		uart_send_str("\n");
+		//sprintf(bafer_uart, "%d", DS3231_Read(ageoffsetREG));	//citam registar za kalibraciju u RTC 
+		//uart_send_str(bafer_uart);
+		//uart_send_str("\n");
 		
 		/* bez obzira na STATE provera vremena treba da ide na 1s odnosno provera
 		   da li grejac treba biti ukljucen ili iskljucen. Donji deo koda (swithc-case) ne bi trebao da koci program */
@@ -195,7 +201,7 @@ int main(void)
 			getTime(&vreme_datum.hr, &vreme_datum.min, &vreme_datum.s, &vreme_datum.am_pm, _24_hour_format);
 			
 			/* integraljenje(sumiranje) snage je enerija. E = P * t     */
-			energija += (snaga/3600.0);		//posto merim u kWh, a ovo ide na 1 sekund, a sat ima 3600s
+			energija += (snaga/3600.0);		//posto merim u kWh, a ovo ide na 1 sekund, a sat ima 3600s delim sa 3600.0
 			
 			//sprintf(bafer, "%02d:%02d:%02d", vreme_datum.hr, vreme_datum.min, vreme_datum.s);
 			//uart_send_str(bafer);
@@ -339,20 +345,8 @@ void fsm_lcd_menu()
 			
 					getTime(&vreme_datum.hr, &vreme_datum.min, &vreme_datum.s, &vreme_datum.am_pm, _24_hour_format);
 					sprintf(bafer, "%02d:%02d:%02d", vreme_datum.hr, vreme_datum.min, vreme_datum.s);
-					
-					//lcd1602_clear();
-			
-					/*izbegao sam celear-ovanje ekrana koje izaziva teperenje dipleja, sa dodavanjem razmaka pre i posle zeljenog ispisa */
-					lcd1602_goto_xy(0,0);
-					lcd1602_send_string("    ");
-					lcd1602_send_string(bafer);
-					lcd1602_send_string("    ");
-			
-					lcd1602_goto_xy(0,1);
-					lcd1602_send_string("  ");
-					sprintf(bafer, "%02d:%02d--%02d:%02d", vreme_paljenja.hr, vreme_paljenja.min, vreme_gasenja.hr, vreme_gasenja.min);
-					lcd1602_send_string(bafer);
-					lcd1602_send_string("  ");
+				
+					displ1_LCD_ispis();			//ispis karaktera na LCD
 			
 				}
 				
@@ -384,31 +378,9 @@ void fsm_lcd_menu()
 					
 					flag_prekid_100ms_VAkWh = 0; //reset flaga
 					
+					brojilo_LCD_ispis();			//ispis karaktera na LCD
 					
-					lcd1602_clear();
-					
-					sprintf(bafer, "%4dV", napon);
-					lcd1602_goto_xy(1,0);
-					lcd1602_send_string(bafer);
-					
-					dtostrf(struja, 4, 1, bafer);
-					lcd1602_goto_xy(1,1);
-					lcd1602_send_string(bafer);
-					lcd1602_send_string("A");
-					
-					dtostrf(snaga, 4, 1, bafer);
-					lcd1602_goto_xy(9,0);
-					lcd1602_send_string(bafer);
-					lcd1602_send_string("kW");
-					
-					/* dummy ispis */
-					//lcd1602_goto_xy(0,0);
-					//lcd1602_send_string("224V      2.2kW");
-					//lcd1602_goto_xy(0,1);
-					//lcd1602_send_string("9.88A    396kWh");
 				}
-				
-				
 				
 				if ( ocitaj_jedan_taster(tasteri, TASTER_ENTER) )	//taster enter stisnut
 				{
@@ -420,46 +392,10 @@ void fsm_lcd_menu()
 		
 		case MENU1:
 					//lcd1602_clear();
+					
 					pom = kursor_vert;
 					
-					lcd1602_goto_xy(0, 0);
-					lcd1602_send_string(">");	//fiksno, a djiram text za menije vertikalno
-					lcd1602_goto_xy(0,1);
-					lcd1602_send_string(" ");	//prazno polje ispod ">"
-
-					lcd1602_goto_xy(1,0);
-					lcd1602_send_string(menu1_txt[kursor_vert]);
-					if (kursor_vert == KURSOR_JEDNOKRAT)			//jednokrat na prvoj liniji
-					{
-						if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
-						{
-							lcd1602_goto_xy(12,0);
-							lcd1602_send_string("<ON>");
-						}
-						else					//ako je off ispisi <OF> pored JEDNOKRATNO
-						{
-							lcd1602_goto_xy(12,0);
-							lcd1602_send_string("<OF>");
-						}
-					}
-					
-					lcd1602_goto_xy(1,1);
-					pom = (pom==KURSOR_MENU1_MAX) ? -1 : pom;	//if-else, wrap-around ekran; -1 da bi dole krenuo od nule, tj od pocetka
-					lcd1602_send_string(menu1_txt[pom + 1]);
-					if ( (pom+1) == KURSOR_JEDNOKRAT)			//jednokrat na drugoj liniji, sa wrap-around-om
-					{
-						if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
-						{
-							lcd1602_goto_xy(12,1);
-							lcd1602_send_string("<ON>");
-						}
-						else					//ako je off ispisi <OF> pored JEDNOKRATNO
-						{
-							lcd1602_goto_xy(12,1);
-							lcd1602_send_string("<OF>");
-						}
-					}
-
+					menu1_LCD_ispis(&pom);			//ispis karaktera na LCD
 		
 					if ( ocitaj_jedan_taster(tasteri, TASTER_DOLE) )		//djira kursor vertikalno ka dole
 					{
@@ -501,17 +437,9 @@ void fsm_lcd_menu()
 						sprintf(bafer, "%02d:%02d:%02d", snap_shot_vremena.hr, snap_shot_vremena.min, snap_shot_vremena.s);
 			
 						kursor_horiz = 5; //na 5 je hh, na 8 je mm a na 11 je ss
-			
-						lcd1602_goto_xy(0,0);
-						lcd1602_send_string("PODESAVANJE SATA");
-			
-						lcd1602_goto_xy(0,1);
-						lcd1602_send_string("    ");
-						lcd1602_send_string(bafer);
-						lcd1602_send_string("    ");
-			
-						lcd1602_goto_xy(kursor_horiz,1);
-						lcd1602_cursor_blink(1);
+						
+						podSat_LCD_ispis();			//ispis karaktera na LCD
+						
 					}
 		
 					if ( ocitaj_jedan_taster(tasteri, TASTER_DESNO) )		//kursor desno
@@ -579,18 +507,7 @@ void fsm_lcd_menu()
 						
 						kursor_horiz = 3;			//hh1:mm1 = 3,6 ; hh2:mm2 = 10,13
 						
-						lcd1602_goto_xy(0,0);
-						lcd1602_send_string("  UPALI--UGASI  ");
-						
-						sprintf(bafer, "%02d:%02d--%02d:%02d", snap_vreme_paljenja.hr, snap_vreme_paljenja.min, snap_vreme_gasenja.hr, snap_vreme_gasenja.min);
-						
-						lcd1602_goto_xy(0,1);
-						lcd1602_send_string("  ");
-						lcd1602_send_string(bafer);
-						lcd1602_send_string("  ");
-						
-						lcd1602_goto_xy(kursor_horiz,1);
-						lcd1602_cursor_blink(1);
+						podOnOff_LCD_ispis();			//ispis karaktera na LCD
 						
 					}
 					if ( ocitaj_jedan_taster(tasteri, TASTER_DESNO) )		//kursor desno
@@ -675,18 +592,7 @@ void fsm_lcd_menu()
 						
 						kursor_horiz = 3;			//hh1:mm1 = 3,6 ; hh2:mm2 = 10,13
 						
-						lcd1602_goto_xy(0,0);
-						lcd1602_send_string("  JEDNOKRATNO:  ");
-						
-						sprintf(bafer, "%02d:%02d--%02d:%02d", snap_vreme_paljenja.hr, snap_vreme_paljenja.min, snap_vreme_gasenja.hr, snap_vreme_gasenja.min);
-						
-						lcd1602_goto_xy(0,1);
-						lcd1602_send_string("  ");
-						lcd1602_send_string(bafer);
-						lcd1602_send_string("  ");
-						
-						lcd1602_goto_xy(kursor_horiz,1);
-						lcd1602_cursor_blink(1);
+						jednokrat_LCD_ispis();			//ispis karaktera na LCD
 						
 					}
 					if ( ocitaj_jedan_taster(tasteri, TASTER_DESNO) )		//kursor desno
@@ -763,29 +669,10 @@ void fsm_lcd_menu()
 					//kopija DISPL2 ali bez uslova za ciklicno menjanje displeja
 					if ( flag_prekid_100ms_VAkWh )	//Ispisujem napon, struju snagu, sa periodom 100ms, da nije zamrznut ispis vec da se vide promene
 					{
-						
 						flag_prekid_100ms_VAkWh = 0; //reset flaga
 						
-						
-						lcd1602_clear();
-						
-						sprintf(bafer, "%4dV", napon);
-						lcd1602_goto_xy(1,0);
-						lcd1602_send_string(bafer);
-						
-						dtostrf(struja, 4, 1, bafer);
-						lcd1602_goto_xy(1,1);
-						lcd1602_send_string(bafer);
-						lcd1602_send_string("A");
-						
-						dtostrf(snaga, 4, 1, bafer);
-						lcd1602_goto_xy(9,0);
-						lcd1602_send_string(bafer);
-						lcd1602_send_string("kW");
-						
-					
+						brojilo_LCD_ispis();
 					}
-					
 					
 					
 					if ( ocitaj_jedan_taster(tasteri, TASTER_NAZAD) )	//taster enter stisnut
@@ -799,4 +686,141 @@ void fsm_lcd_menu()
 		default: {}
 		
 	}
+	
+	
+}
+
+
+
+void displ1_LCD_ispis()
+{
+	/*izbegao sam celear-ovanje ekrana koje izaziva teperenje dipleja, sa dodavanjem razmaka pre i posle zeljenog ispisa */
+	lcd1602_goto_xy(0,0);
+	lcd1602_send_string("    ");
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("    ");
+	
+	lcd1602_goto_xy(0,1);
+	lcd1602_send_string("  ");
+	sprintf(bafer, "%02d:%02d--%02d:%02d", vreme_paljenja.hr, vreme_paljenja.min, vreme_gasenja.hr, vreme_gasenja.min);
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("  ");
+	
+}
+
+void menu1_LCD_ispis(int* pomocna)
+{
+	
+	
+	lcd1602_goto_xy(0, 0);
+	lcd1602_send_string(">");	//fiksno, a djiram text za menije vertikalno
+	lcd1602_goto_xy(0,1);
+	lcd1602_send_string(" ");	//prazno polje ispod ">"
+
+	lcd1602_goto_xy(1,0);
+	lcd1602_send_string(menu1_txt[kursor_vert]);
+	if (kursor_vert == KURSOR_JEDNOKRAT)			//jednokrat na prvoj liniji
+	{
+		if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
+		{
+			lcd1602_goto_xy(12,0);
+			lcd1602_send_string("<ON>");
+		}
+		else					//ako je off ispisi <OF> pored JEDNOKRATNO
+		{
+			lcd1602_goto_xy(12,0);
+			lcd1602_send_string("<OF>");
+		}
+	}
+	
+	lcd1602_goto_xy(1,1);
+	*pomocna = (*pomocna==KURSOR_MENU1_MAX) ? -1 : *pomocna;	//if-else, wrap-around ekran; -1 da bi dole krenuo od nule, tj od pocetka
+	lcd1602_send_string(menu1_txt[*pomocna + 1]);
+	if ( (*pomocna+1) == KURSOR_JEDNOKRAT)			//jednokrat na drugoj liniji, sa wrap-around-om
+	{
+		if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
+		{
+			lcd1602_goto_xy(12,1);
+			lcd1602_send_string("<ON>");
+		}
+		else					//ako je off ispisi <OF> pored JEDNOKRATNO
+		{
+			lcd1602_goto_xy(12,1);
+			lcd1602_send_string("<OF>");
+		}
+	}
+	
+}
+
+void podSat_LCD_ispis()
+{
+	lcd1602_goto_xy(0,0);
+	lcd1602_send_string("PODESAVANJE SATA");
+	
+	lcd1602_goto_xy(0,1);
+	lcd1602_send_string("    ");
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("    ");
+	
+	lcd1602_goto_xy(kursor_horiz,1);
+	lcd1602_cursor_blink(1);
+}
+
+void podOnOff_LCD_ispis()
+{
+	
+	sprintf(bafer, "%02d:%02d--%02d:%02d", snap_vreme_paljenja.hr, snap_vreme_paljenja.min, snap_vreme_gasenja.hr, snap_vreme_gasenja.min);
+	
+	lcd1602_goto_xy(0,0);
+	lcd1602_send_string("  UPALI--UGASI  ");
+	lcd1602_goto_xy(0,1);
+	lcd1602_send_string("  ");
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("  ");
+	
+	lcd1602_goto_xy(kursor_horiz,1);
+	lcd1602_cursor_blink(1);
+}
+
+void jednokrat_LCD_ispis()
+{
+	
+	sprintf(bafer, "%02d:%02d--%02d:%02d", snap_vreme_paljenja.hr, snap_vreme_paljenja.min, snap_vreme_gasenja.hr, snap_vreme_gasenja.min);
+	
+	lcd1602_goto_xy(0,0);
+	lcd1602_send_string("  JEDNOKRATNO:  ");
+	lcd1602_goto_xy(0,1);
+	lcd1602_send_string("  ");
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("  ");
+	
+	lcd1602_goto_xy(kursor_horiz,1);
+	lcd1602_cursor_blink(1);
+}
+
+void brojilo_LCD_ispis()
+{
+	lcd1602_clear();
+	
+	sprintf(bafer, "%4dV", napon);
+	lcd1602_goto_xy(1,0);
+	lcd1602_send_string(bafer);
+	
+	dtostrf(snaga, 4, 2, bafer);
+	lcd1602_goto_xy(9,0);
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("kW");
+	
+	
+	dtostrf(struja, 4, 1, bafer);
+	lcd1602_goto_xy(1,1);
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("A");
+	
+	
+	
+	dtostrf(energija, 5, 2, bafer);
+	lcd1602_goto_xy(8,1);
+	lcd1602_send_string(bafer);
+	lcd1602_send_string("kWh");
 }
