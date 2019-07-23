@@ -694,7 +694,7 @@ void fsm_lcd_menu()
 
 void displ1_LCD_ispis()
 {
-	/*izbegao sam celear-ovanje ekrana koje izaziva teperenje dipleja, sa dodavanjem razmaka pre i posle zeljenog ispisa */
+	/*izbegao sam celear-ovanje ekrana koje izaziva treperenje dipleja, sa dodavanjem razmaka pre i posle zeljenog ispisa */
 	lcd1602_goto_xy(0,0);
 	lcd1602_send_string("    ");
 	lcd1602_send_string(bafer);
@@ -710,7 +710,6 @@ void displ1_LCD_ispis()
 
 void menu1_LCD_ispis(int* pomocna)
 {
-	
 	
 	lcd1602_goto_xy(0, 0);
 	lcd1602_send_string(">");	//fiksno, a djiram text za menije vertikalno
@@ -800,24 +799,25 @@ void jednokrat_LCD_ispis()
 
 void brojilo_LCD_ispis()
 {
-	lcd1602_clear();
+	//lcd1602_clear(); izbrgavam, zbog treperenja, na praznim mestima stampam razmake
 	
-	sprintf(bafer, "%4dV", napon);
-	lcd1602_goto_xy(1,0);
+	sprintf(bafer, "%5dV", napon);
+	lcd1602_goto_xy(0,0);
 	lcd1602_send_string(bafer);
+	
+	lcd1602_send_string("   ");
 	
 	dtostrf(snaga, 4, 2, bafer);
 	lcd1602_goto_xy(9,0);
 	lcd1602_send_string(bafer);
-	lcd1602_send_string("kW");
+	lcd1602_send_string("kW ");	  //+ razmak da popuni ekran
 	
-	
-	dtostrf(struja, 4, 1, bafer);
-	lcd1602_goto_xy(1,1);
+	dtostrf(struja, 5, 1, bafer);
+	lcd1602_goto_xy(0,1);
 	lcd1602_send_string(bafer);
 	lcd1602_send_string("A");
 	
-	
+	lcd1602_send_string("   ");
 	
 	dtostrf(energija, 5, 2, bafer);
 	lcd1602_goto_xy(8,1);
