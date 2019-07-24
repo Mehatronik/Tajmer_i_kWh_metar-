@@ -17,17 +17,19 @@ void tasteri_init()
 {
 	/* tasteri input */
 	DDRD &= ~( (1<<TASTER_LEVO_pinPort) | (1<<TASTER_DESNO_pinPort) | (1<<TASTER_GORE_pinPort) | (1<<TASTER_DOLE_pinPort) );
-	DDRB &= ~( (1<<TASTER_NAZAD_pinPort) | (1<<TASTER_ENTER_pinPort) );
+	DDRD &= ~( (1<<TASTER_NAZAD_pinPort) | (1<<TASTER_ENTER_pinPort) );
+	DDRB &= ~( 1<<TASTER_NONSTOP_pinPort );
 	
 	/* internal pull ups ON */
 	PORTD |= (1<<TASTER_LEVO_pinPort) | (1<<TASTER_DESNO_pinPort) | (1<<TASTER_GORE_pinPort) | (1<<TASTER_DOLE_pinPort);
-	PORTB |= (1<<TASTER_NAZAD_pinPort) | (1<<TASTER_ENTER_pinPort);
+	PORTD |= (1<<TASTER_NAZAD_pinPort) | (1<<TASTER_ENTER_pinPort);
+	PORTB |= (1<<TASTER_NONSTOP_pinPort);
 }
 
 
 uint8_t ocitaj_tastere()
 {
-	/* posto imam 6 tastera spakovacu ih u jedan "registar" tj. 8-bit promenljivu
+	/* posto imam 7 tastera spakovacu ih u jedan "registar" tj. 8-bit promenljivu
 	   gde ce svaki bit predstavljati stanje tastera, a prva dva MSB su visak     */
 	
 	/* posto postoji problem bouncing-a, tastere ocitavam sa periodom npr. 50ms, tj.
@@ -49,7 +51,7 @@ uint8_t ocitaj_tastere()
 		
 		//procitam stanje svih tastera i spakujem u jednu promenljivu
 		//prvo citanje
-		temp_reg1 = (PINB << 4 )|(PIND >> 4);	//prva 4 LSB su PINB a posle njih su 2 bita iz PIND
+		temp_reg1 = TEMP_REG_READ;
 
 	}
 	if (flag_prekid_debounce_time)		//drugo citanje 6ms, tj 3ms posle drugog
@@ -57,7 +59,7 @@ uint8_t ocitaj_tastere()
 		flag_prekid_debounce_time = 0;
 		
 		//drugo citanje
-		temp_reg2 = (PINB << 4 )|(PIND >> 4);
+		temp_reg2 = TEMP_REG_READ;
 		
 		if (temp_reg1 == temp_reg2)
 			tasteri_reg = temp_reg2;	//nebitno da li je 1 ili 2 jer su ovde isti

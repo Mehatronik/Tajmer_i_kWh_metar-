@@ -54,7 +54,7 @@ void lcd1602_send_char(char c)
 void lcd1602_init()
 {
 	led_pin = 0;
-	i2c_init();
+	//i2c_init();		inicijalizovano u main-u
 	_delay_ms(15);
 	putnibble(0b00000011);
 	_delay_ms(4);

@@ -5,6 +5,28 @@
  * Author : Kovacevic
  */ 
 
+/* TODO: implementiraj non-stop funkciju. Neka treperi jedna dioda kad je aktivan taj rezim, da bi korisniku bilo jasno da je const upaljeno.
+   Moze i da se smenjuje na glavnom ekranu sa necim i da ispisuje NONSTOP ili tako nesto. */
+
+/* TODO: Mora postojati neka vrsta reseta ili mozda reinicijalizacije I2C-a u slucaju gubitka veze sa LCDom, RTCom. U tom slucaju dolazi do potpune blokade
+   programa. Trebam proveriti postoji li neka vrsta ACKNOWLEDGE-a pri slanju preko i2c, pa ako nije ACK da ponovo izvrsim init. 
+   Druga opcija je da koristim watchdog timer pri svakom i2c slanju. Watchdog moze biti 16ms-8s. Moze da izvrsi reset ali i da izvrsi ISR, u kome mogu npr.
+   pozvati i2c init. */
+
+/* TODO: pogledaj f-je LCDa, tj implementiraj custom karaktere za lepsi i manje zbunjujuci ispis crtice izmedju vremena paljenja i gasenja. Napravi ga sa
+   2 custom znaka, jer zauzima 2 polja, ali da je svaka crtica kraca od ove sistemske */
+
+/* TODO: implementiraj FLASH memoriju za data-logging, gde bi upisivao svakog dana ukupnu potrosnju za taj dan, zajedno sa datumom. Za to ce trebati i MENU
+   gde bi se moglo listati i gledati kolika je bila potrosnja u prethodnim danima, mesecima, godinama. Procenio sam da je korektno da ogranicim na 5 godina 
+   upisivanje.	Ovi podaci bi zauzimali vrlo malo memorije, s obzirom da je ona 32Mbit = 4Mbyte.
+   Jedno "polje" bi posluzilo za azuriranje potrosnje u tekucem danu , recimo, svaki minuti ili 10 minuta (da bi ostalo zapamceno u slucaju gubitka napajanja).
+   FLASH koristi SPI.
+   Ako bi koristio SPI onda realno ne bi bilo potrebe za EEPROMom kojeg trenutno koristim za cuvanje korisnickih podataka (vreme on-off itd), ali je mozda zgodno
+   ostaviti ga zbog redudantnosti. */
+
+/* TODO: implementiraj opciju u meniju da je moguce upaliti ili ugasiti ciklicno smenjivanje glavnog ispisa na ekranu (sata) i brojila, jer je sada const. ukljuceno */
+
+
 #include "comm.h"
 #include "rtc_ds3231.h"
 #include "pin_change_interrupt.h"
@@ -77,7 +99,7 @@ const uint8_t brojRedova = sizeof(menu1_txt) / sizeof(menu1_txt[1]) - 1;	//sa lo
 uint8_t period_paljenja(Time_date *On_time, Time_date *Off_time, Time_date *CurrentTime);  //typedef struct mora biti pre prototipa da bi je video
 void fsm_lcd_menu();
 void displ1_LCD_ispis();
-void menu1_LCD_ispis(int* pom);
+void menu1_LCD_ispis();
 void podSat_LCD_ispis();
 void podOnOff_LCD_ispis();
 void jednokrat_LCD_ispis();
@@ -318,7 +340,6 @@ uint8_t period_paljenja(Time_date *On_time, Time_date *Off_time, Time_date *Curr
 
 void fsm_lcd_menu()
 {
-	int pom;
 	
 	switch(STATE)
 	{
@@ -391,11 +412,8 @@ void fsm_lcd_menu()
 		break;
 		
 		case MENU1:
-					//lcd1602_clear();
 					
-					pom = kursor_vert;
-					
-					menu1_LCD_ispis(&pom);			//ispis karaktera na LCD
+					menu1_LCD_ispis();			//ispis karaktera na LCD
 		
 					if ( ocitaj_jedan_taster(tasteri, TASTER_DOLE) )		//djira kursor vertikalno ka dole
 					{
@@ -677,7 +695,7 @@ void fsm_lcd_menu()
 					
 					if ( ocitaj_jedan_taster(tasteri, TASTER_NAZAD) )	//taster enter stisnut
 					{
-						displ_flag_shot = 1; //opet dozvolim, pri izlazku iz ovog stejta
+						//displ_flag_shot = 1; //opet dozvolim, pri izlazku iz ovog stejta
 						STATE = MENU1;
 					}
 		
@@ -708,8 +726,9 @@ void displ1_LCD_ispis()
 	
 }
 
-void menu1_LCD_ispis(int* pomocna)
+void menu1_LCD_ispis()
 {
+	int pomocna = kursor_vert;
 	
 	lcd1602_goto_xy(0, 0);
 	lcd1602_send_string(">");	//fiksno, a djiram text za menije vertikalno
@@ -733,9 +752,9 @@ void menu1_LCD_ispis(int* pomocna)
 	}
 	
 	lcd1602_goto_xy(1,1);
-	*pomocna = (*pomocna==KURSOR_MENU1_MAX) ? -1 : *pomocna;	//if-else, wrap-around ekran; -1 da bi dole krenuo od nule, tj od pocetka
-	lcd1602_send_string(menu1_txt[*pomocna + 1]);
-	if ( (*pomocna+1) == KURSOR_JEDNOKRAT)			//jednokrat na drugoj liniji, sa wrap-around-om
+	pomocna = (pomocna==KURSOR_MENU1_MAX) ? -1 : pomocna;	//if-else, wrap-around ekran; -1 da bi dole krenuo od nule, tj od pocetka
+	lcd1602_send_string(menu1_txt[pomocna + 1]);
+	if ( (pomocna+1) == KURSOR_JEDNOKRAT)			//jednokrat na drugoj liniji, sa wrap-around-om
 	{
 		if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
 		{
