@@ -115,16 +115,3 @@ void adc_read()
 	}
 }
 
-//char str[100];
-//float adc_read = 678.0123;
-//
-//char *tmpSign = (adc_read < 0) ? "-" : "";
-//float tmpVal = (adc_read < 0) ? -adc_read : adc_read;
-//
-//int tmpInt1 = tmpVal;                  // Get the integer (678).
-//float tmpFrac = tmpVal - tmpInt1;      // Get fraction (0.0123).
-//int tmpInt2 = trunc(tmpFrac * 10000);  // Turn into integer (123).
-//
-//// Print as parts, note that you need 0-padding for fractional bit.
-//
-//sprintf (str, "adc_read = %s%d.%04d\n", tmpSign, tmpInt1, tmpInt2);

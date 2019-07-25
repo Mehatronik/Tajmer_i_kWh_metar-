@@ -28,6 +28,14 @@
 #define JEDNOK_UGASI_HR_ADR  6
 #define JEDNOK_UGASI_MIN_ADR 7
 
+/* 4 bajta jer je kWh float, a float je 4 bajta dugacak na AVR-u */
+#define KWH_BYTE0_ADR 8
+#define KWH_BYTE1_ADR 9
+#define KWH_BYTE2_ADR 10
+#define KWH_BYTE3_ADR 11
+
+#define BROJILO_ONOF_ADR 12
+
 extern uint8_t EEPROM_read(uint16_t uiAddress);
 extern void EEPROM_write(uint16_t uiAddress, uint8_t ucData);
 

@@ -53,7 +53,7 @@
 	 uint8_t am_pm;     // =am	 
  }Time_date;
 
-Time_date vreme_datum;
+Time_date vreme_trenutno;
 Time_date vreme_paljenja;
 Time_date vreme_gasenja;
 Time_date jednokratno_paljenje;
@@ -63,7 +63,7 @@ Time_date jednokratno_gasenje;
 Time_date snap_vreme_paljenja;
 Time_date snap_vreme_gasenja;
 Time_date snap_shot_vremena;	//za potrebe podesavanje vremena
-																								//TODO: dodaj time-out u svakom meniju od npr 10-15 minuta
+																								
 char bafer[20];
 uint8_t ukljuceno = 0;  //0=OFF 1=ON
 uint8_t tasteri = 0xFF;
@@ -71,18 +71,16 @@ uint8_t STATE = DISPL1;	//pocetno stanje
 uint8_t displ_flag_shot = 1;	//inicijalno 1, pomocni flag kod uletanja u menije, da se samo prvi put izvrsava ispis, da ne djira bezveze
 int8_t kursor_vert = 0;			//TODO: ubaci drugu promenljivu za horizontalni kursor, da bi mogao da pamtis vertikalni, kada se vracas u prethodni meni da se ne resetuje. EDIT: done.
 int8_t kursor_horiz = 0;
-
-//uint8_t flag_pod_vremena = 1;	//TODO: mislim da se ovde 3 "flag-shota" mogu svesti pod jednu promenljivu. EDIT: done.
-//uint8_t flag_pod_ONOFF = 1;
+uint8_t brojilo_on_off = 0;	//za on/of ispisa brojila na glavnom ekranu
 uint8_t jednok_on_off = 0;	//za on/off jednokratnog perioda
 uint8_t jednok_se_desio = 0;
-
+uint32_t energija_32uint = 0;	//zbog pisanja u eeprom, a inace je float (4bajta)
 
 //za dodavanje novih menije jednostavno se doda novi tekst, i definise redni broj kursora
 const char menu1_txt[][16]  = { "JEDNOKRATNO",
 								 "PODESI PERIOD  ",
 								 "PODESI SAT     ",
-								 "BROJILO        "	};		
+								 "BROJILO    "	};		
 
 const uint8_t brojRedova = sizeof(menu1_txt) / sizeof(menu1_txt[1]) - 1;	//sa logikom gde je 0 prvi broj, zato -1
 
@@ -97,6 +95,7 @@ const uint8_t brojRedova = sizeof(menu1_txt) / sizeof(menu1_txt[1]) - 1;	//sa lo
 
 /************************** prototipovi funkcija ***************************************/
 uint8_t period_paljenja(Time_date *On_time, Time_date *Off_time, Time_date *CurrentTime);  //typedef struct mora biti pre prototipa da bi je video
+uint8_t eeprom_zastita(Time_date*, Time_date*, Time_date*, Time_date*);
 void fsm_lcd_menu();
 void displ1_LCD_ispis();
 void menu1_LCD_ispis();
@@ -149,11 +148,7 @@ int main(void)
 	//getDate(&vreme_datum.dy, &vreme_datum.dt, &vreme_datum.mt, &vreme_datum.yr);
 	//setTime(23, 59, 55, am, _24_hour_format);
 	//int i;
-	
-	//EEPROM_write(UPALI_HR_ADR, 23);
-	//EEPROM_write(UPALI_MIN_ADR, 25);
-	//EEPROM_write(UGASI_HR_ADR, 5);
-	//EEPROM_write(UGASI_MIN_ADR, 45);
+
 	
 	/* citanje on-off vremena iz eeproma pri inicijalizaciji */
 	vreme_paljenja.hr = EEPROM_read(UPALI_HR_ADR);
@@ -165,6 +160,20 @@ int main(void)
 	jednokratno_paljenje.min = EEPROM_read(JEDNOK_UPALI_MIN_ADR);
 	jednokratno_gasenje.hr = EEPROM_read(JEDNOK_UGASI_HR_ADR);
 	jednokratno_gasenje.min = EEPROM_read(JEDNOK_UGASI_MIN_ADR);
+	
+	energija_32uint =  (uint32_t)EEPROM_read(KWH_BYTE0_ADR);
+	energija_32uint |= (uint32_t)EEPROM_read(KWH_BYTE1_ADR) << 8;
+	energija_32uint |= (uint32_t)EEPROM_read(KWH_BYTE2_ADR) << 16;
+	energija_32uint |= (uint32_t)EEPROM_read(KWH_BYTE3_ADR) << 24;
+	energija = ((float)energija_32uint)/100;
+	
+	brojilo_on_off = EEPROM_read(BROJILO_ONOF_ADR);																										
+																												
+	/* zastita, usled moguce korupcije eeproma */
+	if ( eeprom_zastita(&vreme_paljenja, &vreme_gasenja, &jednokratno_paljenje, &jednokratno_gasenje) )
+	{
+		//nekorektna vrednost u eepromu, ili fejl pri citanju
+	}
 	
 	snap_vreme_paljenja = vreme_paljenja;
 	snap_vreme_gasenja = vreme_gasenja;
@@ -220,10 +229,24 @@ int main(void)
 			/* da sam koristio isti flag kao u automatu stanja, a ovde ga resetujem, dole nikada
 			   ne bi bio ispunjen uslov za flag_pc_int==1 */
 			
-			getTime(&vreme_datum.hr, &vreme_datum.min, &vreme_datum.s, &vreme_datum.am_pm, _24_hour_format);
+			getTime(&vreme_trenutno.hr, &vreme_trenutno.min, &vreme_trenutno.s, &vreme_trenutno.am_pm, _24_hour_format);
 			
 			/* integraljenje(sumiranje) snage je enerija. E = P * t     */
 			energija += (snaga/3600.0);		//posto merim u kWh, a ovo ide na 1 sekund, a sat ima 3600s delim sa 3600.0
+			
+			/* upisivanje u eeprom trenutne energije neka ide na svaka 3h. U 00:00 neka dodje do reseta */
+			if ( (vreme_trenutno.hr % 3) == 0   &&   vreme_trenutno.min == 0	  &&   vreme_trenutno.s == 0 )	//ako je ugasen u ovo vreme ili omasi sekundu, nece se desiti
+			{
+				if(vreme_trenutno.hr == 0)	//ako je 00:00h resetuje. Probelm sa ovim je sto ako je za ovo vreme uC iskljucen, nece doci do reseta
+					energija = 0;
+				
+				energija_32uint = (uint32_t)(energija*100);	//mnozim sa sto jer gledam na 2 decimale
+				
+				EEPROM_write(KWH_BYTE0_ADR, (uint16_t)energija_32uint);
+				EEPROM_write(KWH_BYTE1_ADR, (uint16_t) (energija_32uint>>8));
+				EEPROM_write(KWH_BYTE2_ADR, (uint16_t) (energija_32uint>>16));
+				EEPROM_write(KWH_BYTE3_ADR, (uint16_t) (energija_32uint>>24));
+			}
 			
 			//sprintf(bafer, "%02d:%02d:%02d", vreme_datum.hr, vreme_datum.min, vreme_datum.s);
 			//uart_send_str(bafer);
@@ -235,7 +258,7 @@ int main(void)
 			{
 				/* ako je setovan flag, pali bojler jednokratno */
 				/* potrebno je resetovati flag po isteku perioda */
-				if ( period_paljenja(&jednokratno_paljenje, &jednokratno_gasenje, &vreme_datum) )	//vraca 0 ili 1 (ugasi - upali)
+				if ( period_paljenja(&jednokratno_paljenje, &jednokratno_gasenje, &vreme_trenutno) )	//vraca 0 ili 1 (ugasi - upali)
 				{
 					ukljuceno = 1;			//ako je IF ispunjen setuj promenljivu "ukljuceno"
 					jednok_se_desio = 1;
@@ -251,7 +274,7 @@ int main(void)
 				ukljuceno = 0;
 			
 			/* GLAVNI PERIOD; paljenje/gasenje releja > grjaca bojlera; edit: zapravo o grejacu odlucuje termostat bojlera, ovim se pali bojler */
-			ukljuceno |= period_paljenja(&vreme_paljenja, &vreme_gasenja, &vreme_datum);	//ILI veza glavnog i jednok. perioda
+			ukljuceno |= period_paljenja(&vreme_paljenja, &vreme_gasenja, &vreme_trenutno);	//ILI veza glavnog i jednok. perioda
 			
 			if (ukljuceno)
 				PORTB |= 1<<PINB5;   //high
@@ -338,6 +361,61 @@ uint8_t period_paljenja(Time_date *On_time, Time_date *Off_time, Time_date *Curr
 	
 }
 
+uint8_t eeprom_zastita(Time_date *paljenje, Time_date *gasenje, Time_date *jednk_paljenje, Time_date *jednok_gasenje)
+{
+	uint8_t errCode = 0;
+	
+	/* zastita za glavno paljenje *****************/
+	if (paljenje->hr > 23 || paljenje->hr < 0)
+	{
+		errCode = 1;
+		paljenje->hr = 23;
+	}
+	if (paljenje->min > 59 || paljenje->min < 0)
+	{
+		errCode = 1;
+		paljenje->min = 0;
+	}
+	
+	/* zastita za glavno gasenje *****************/
+	if (gasenje->hr > 23 || gasenje->hr < 0)
+	{
+		errCode = 1;
+		gasenje->hr = 6;
+	}
+	if (gasenje->min > 59 || gasenje->min < 0)
+	{
+		errCode = 1;
+		gasenje->min = 30;
+	}
+	
+	/* zastita za jednokratno paljenje *****************/
+	if (jednk_paljenje->hr > 23 || jednk_paljenje->hr < 0)
+	{
+		errCode = 1;
+		jednk_paljenje->hr = 14;
+	}
+	if (jednk_paljenje->min > 59 || jednk_paljenje->min < 0)
+	{
+		errCode = 1;
+		jednk_paljenje->min = 0;
+	}
+	
+	/* zastita za jednokratno gasenje *****************/
+	if (jednok_gasenje->hr > 23 || jednok_gasenje->hr < 0)
+	{
+		errCode = 1;
+		jednok_gasenje->hr = 15;
+	}
+	if (jednok_gasenje->min > 59 || jednok_gasenje->min < 0)
+	{
+		errCode = 1;
+		jednok_gasenje->min = 0;
+	}
+	
+	return errCode;		//obavesti ako je doslo do odstupanja od ocekivanih citanja, sto verovatnu ukazuje na gresku pri pisanju u eeprom, ili moguci otkaz eeproma
+}
+
 void fsm_lcd_menu()
 {
 	
@@ -353,19 +431,21 @@ void fsm_lcd_menu()
 					displ_flag_shot = 0; //resetujem flag, i zabranim ponovni ulazak
 					timer_disp_cycle = 0;	//start tajmera
 				}
-				
-				if (timer_disp_cycle > 7000)	//7 sekundi
+				if (brojilo_on_off == 1)
 				{
-					displ_flag_shot = 1; //opet dozvolim, pri izlazku iz ovog stejta
-					STATE = DISPL2;
+					if (timer_disp_cycle > 7000)	//7 sekundi, samo ako je ukljucen ispis brojila (brojilo_on_off)
+					{
+						displ_flag_shot = 1; //opet dozvolim, pri izlazku iz ovog stejta
+						STATE = DISPL2;
+					}
 				}
-						
+					
 				if(flag_pc_int)		//pc int usled signala koji dolazi sa SQW pin sa RTC modula; 1 sekund
 				{
 					flag_pc_int = 0; //resetujem flag koji je u ISR
 			
-					getTime(&vreme_datum.hr, &vreme_datum.min, &vreme_datum.s, &vreme_datum.am_pm, _24_hour_format);
-					sprintf(bafer, "%02d:%02d:%02d", vreme_datum.hr, vreme_datum.min, vreme_datum.s);
+					getTime(&vreme_trenutno.hr, &vreme_trenutno.min, &vreme_trenutno.s, &vreme_trenutno.am_pm, _24_hour_format);
+					sprintf(bafer, "%02d:%02d:%02d", vreme_trenutno.hr, vreme_trenutno.min, vreme_trenutno.s);
 				
 					displ1_LCD_ispis();			//ispis karaktera na LCD
 			
@@ -437,7 +517,11 @@ void fsm_lcd_menu()
 						jednok_on_off = !jednok_on_off;	//toggle
 					else if ( kursor_vert == KURSOR_BROJILO && ocitaj_jedan_taster(tasteri, TASTER_ENTER))
 						STATE = BROJILO; //sub meni za prikaz merenja trenutnog napona, struje, snage...
-					
+					else if( kursor_vert == KURSOR_BROJILO && ( ocitaj_jedan_taster(tasteri, TASTER_LEVO) ||  ocitaj_jedan_taster(tasteri, TASTER_DESNO) ) )
+					{
+						brojilo_on_off = !brojilo_on_off;	//toggle
+						EEPROM_write(BROJILO_ONOF_ADR, brojilo_on_off);
+					}
 					else if ( ocitaj_jedan_taster(tasteri, TASTER_NAZAD) )				//taster nazad stisnut
 					{
 						kursor_vert = 0;			//resetujem kursor jer ostane memorisan
@@ -451,7 +535,7 @@ void fsm_lcd_menu()
 					if (displ_flag_shot)
 					{
 						displ_flag_shot = 0;
-						snap_shot_vremena = vreme_datum;
+						snap_shot_vremena = vreme_trenutno;
 						sprintf(bafer, "%02d:%02d:%02d", snap_shot_vremena.hr, snap_shot_vremena.min, snap_shot_vremena.s);
 			
 						kursor_horiz = 5; //na 5 je hh, na 8 je mm a na 11 je ss
@@ -750,10 +834,26 @@ void menu1_LCD_ispis()
 			lcd1602_send_string("<OF>");
 		}
 	}
+	if (kursor_vert == KURSOR_BROJILO)			//brojilo na prvoj liniji
+	{
+		if(brojilo_on_off)		//ubaci promenljivu i upis u eeprom
+		{
+			lcd1602_goto_xy(12,0);
+			lcd1602_send_string("<ON>");
+		}
+		else
+		{
+			lcd1602_goto_xy(12,0);
+			lcd1602_send_string("<OF>");
+		}
+	}
+	
 	
 	lcd1602_goto_xy(1,1);
+	
 	pomocna = (pomocna==KURSOR_MENU1_MAX) ? -1 : pomocna;	//if-else, wrap-around ekran; -1 da bi dole krenuo od nule, tj od pocetka
 	lcd1602_send_string(menu1_txt[pomocna + 1]);
+	
 	if ( (pomocna+1) == KURSOR_JEDNOKRAT)			//jednokrat na drugoj liniji, sa wrap-around-om
 	{
 		if (jednok_on_off == 1)					//ako je on ispisi <ON> pored JEDNOKRATNO
@@ -762,6 +862,19 @@ void menu1_LCD_ispis()
 			lcd1602_send_string("<ON>");
 		}
 		else					//ako je off ispisi <OF> pored JEDNOKRATNO
+		{
+			lcd1602_goto_xy(12,1);
+			lcd1602_send_string("<OF>");
+		}
+	}
+	if ( (pomocna+1) == KURSOR_BROJILO)			//brojilo na drugoj liniji, sa wrap-around-om
+	{
+		if (brojilo_on_off)					
+		{
+			lcd1602_goto_xy(12,1);
+			lcd1602_send_string("<ON>");
+		}
+		else					//ako je off ispisi <OF> pored brojilo
 		{
 			lcd1602_goto_xy(12,1);
 			lcd1602_send_string("<OF>");
