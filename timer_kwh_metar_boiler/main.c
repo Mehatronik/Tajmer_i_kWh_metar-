@@ -11,20 +11,14 @@
 /* TODO: Mora postojati neka vrsta reseta ili mozda reinicijalizacije I2C-a u slucaju gubitka veze sa LCDom, RTCom. U tom slucaju dolazi do potpune blokade
    programa. Trebam proveriti postoji li neka vrsta ACKNOWLEDGE-a pri slanju preko i2c, pa ako nije ACK da ponovo izvrsim init. 
    Druga opcija je da koristim watchdog timer pri svakom i2c slanju. Watchdog moze biti 16ms-8s. Moze da izvrsi reset ali i da izvrsi ISR, u kome mogu npr.
-   pozvati i2c init. */
+   pozvati i2c init.
+   EDIT: bolje je da I2C radi preko ISR-a, tako da i u slucaju poptunog prekida (npr. kabla) program i dalje funkcionise
+    */
 
 /* TODO: pogledaj f-je LCDa, tj implementiraj custom karaktere za lepsi i manje zbunjujuci ispis crtice izmedju vremena paljenja i gasenja. Napravi ga sa
    2 custom znaka, jer zauzima 2 polja, ali da je svaka crtica kraca od ove sistemske */
 
-/* TODO: implementiraj FLASH memoriju za data-logging, gde bi upisivao svakog dana ukupnu potrosnju za taj dan, zajedno sa datumom. Za to ce trebati i MENU
-   gde bi se moglo listati i gledati kolika je bila potrosnja u prethodnim danima, mesecima, godinama. Procenio sam da je korektno da ogranicim na 5 godina 
-   upisivanje.	Ovi podaci bi zauzimali vrlo malo memorije, s obzirom da je ona 32Mbit = 4Mbyte.
-   Jedno "polje" bi posluzilo za azuriranje potrosnje u tekucem danu , recimo, svaki minuti ili 10 minuta (da bi ostalo zapamceno u slucaju gubitka napajanja).
-   FLASH koristi SPI.
-   Ako bi koristio SPI onda realno ne bi bilo potrebe za EEPROMom kojeg trenutno koristim za cuvanje korisnickih podataka (vreme on-off itd), ali je mozda zgodno
-   ostaviti ga zbog redudantnosti. */
-
-/* TODO: implementiraj opciju u meniju da je moguce upaliti ili ugasiti ciklicno smenjivanje glavnog ispisa na ekranu (sata) i brojila, jer je sada const. ukljuceno */
+/* TODO: umesto internog EEPROMA prebaci se na eksterni koji se nalazi na RTC plocici, jer je boljih karakteristika od internog*/
 
 
 #include "comm.h"
@@ -234,18 +228,18 @@ int main(void)
 			/* integraljenje(sumiranje) snage je enerija. E = P * t     */
 			energija += (snaga/3600.0);		//posto merim u kWh, a ovo ide na 1 sekund, a sat ima 3600s delim sa 3600.0
 			
-			/* upisivanje u eeprom trenutne energije neka ide na svaka 3h. U 00:00 neka dodje do reseta */
-			if ( (vreme_trenutno.hr % 3) == 0   &&   vreme_trenutno.min == 0	  &&   vreme_trenutno.s == 0 )	//ako je ugasen u ovo vreme ili omasi sekundu, nece se desiti
+			/* upisivanje u eeprom trenutne energije neka ide na svaka 1h. U 00:00 neka dodje do reseta */
+			if ( (vreme_trenutno.hr % 1) == 0   &&   vreme_trenutno.min == 0	  &&   vreme_trenutno.s == 0 )	//ako je ugasen u ovo vreme ili omasi sekundu, nece se desiti
 			{
 				if(vreme_trenutno.hr == 0)	//ako je 00:00h resetuje. Probelm sa ovim je sto ako je za ovo vreme uC iskljucen, nece doci do reseta
 					energija = 0;
 				
 				energija_32uint = (uint32_t)(energija*100);	//mnozim sa sto jer gledam na 2 decimale
 				
-				EEPROM_write(KWH_BYTE0_ADR, (uint16_t)energija_32uint);
-				EEPROM_write(KWH_BYTE1_ADR, (uint16_t) (energija_32uint>>8));
-				EEPROM_write(KWH_BYTE2_ADR, (uint16_t) (energija_32uint>>16));
-				EEPROM_write(KWH_BYTE3_ADR, (uint16_t) (energija_32uint>>24));
+				EEPROM_write(KWH_BYTE0_ADR, (uint8_t)energija_32uint);
+				EEPROM_write(KWH_BYTE1_ADR, (uint8_t) (energija_32uint>>8));
+				EEPROM_write(KWH_BYTE2_ADR, (uint8_t) (energija_32uint>>16));
+				EEPROM_write(KWH_BYTE3_ADR, (uint8_t) (energija_32uint>>24));
 			}
 			
 			//sprintf(bafer, "%02d:%02d:%02d", vreme_datum.hr, vreme_datum.min, vreme_datum.s);

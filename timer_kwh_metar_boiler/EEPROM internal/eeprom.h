@@ -18,6 +18,8 @@
 
 #include "comm.h"
 
+#define eeprom_I2C_address 0x57		//Atmel AT24C32; 32Kbit = 4096 x 8bit = 4Kbyte;	1 million write cycles, 100 years data retention
+
 #define UPALI_HR_ADR   0
 #define UPALI_MIN_ADR  1
 #define UGASI_HR_ADR   2
